@@ -4,9 +4,13 @@ React + TypeScript + Vite frontend for the Department Occupancy Tracking System.
 
 ## Current status
 
-The frontend project is configured and builds as a standard React 19 application, but `src/App.tsx` still contains the Vite starter interface. It is not yet connected to the backend and must not be treated as a finished occupancy dashboard.
+The frontend is a complete standalone demonstration dashboard with Overview,
+Live Monitoring, Camera Management, Events, Analytics, and Settings screens.
+It uses realistic mock data and does not make backend requests.
 
-The functional backend lives in `../backend`. Its Swagger documentation is available at <http://127.0.0.1:8000/docs> when running.
+Camera and zone configurations persist in browser `localStorage`. Camera stream
+addresses are masked after saving and demo previews are explicitly labelled as
+not connected.
 
 ## Technology
 
@@ -19,16 +23,6 @@ The functional backend lives in `../backend`. Its Swagger documentation is avail
 - ESLint and Prettier
 
 ## Start the frontend
-
-Run the backend first from the repository root:
-
-```powershell
-Set-Location D:\Department-Occupancy-Tracking
-.\venv\Scripts\Activate.ps1
-uvicorn backend.main:app --host 127.0.0.1 --port 8000
-```
-
-Then open another PowerShell terminal:
 
 ```powershell
 Set-Location D:\Department-Occupancy-Tracking\frontend

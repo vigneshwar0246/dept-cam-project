@@ -62,7 +62,8 @@ class Repository:
     async def latest_snapshots(self) -> list[dict]:
         if self.database.available:
             pipeline = [{"$sort": {"timestamp": -1}}, {"$group": {"_id": "$zone_id", "doc": {"$first": "$$ROOT"}}}]
-            return [item["doc"] async for item in self.database.db.occupancy_snapshots.aggregate(pipeline)]
+            cursor = await self.database.db.occupancy_snapshots.aggregate(pipeline)
+            return [item["doc"] async for item in cursor]
         latest: dict[str, dict] = {}
         for row in self.memory["occupancy_snapshots"]:
             latest[row["zone_id"]] = row
