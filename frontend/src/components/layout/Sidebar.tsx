@@ -11,6 +11,6 @@ export function Sidebar({ page, collapsed, mobileOpen, onNavigate, onCollapse, o
   return <><aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} ${mobileOpen ? 'sidebar-mobile-open' : ''}`}>
     <div className="brand"><div className="brand-mark"><ShieldCheck size={24} /></div>{!collapsed && <div><strong>Occupancy</strong><span>Department Command</span></div>}<button className="mobile-close icon-button" onClick={onClose}><X size={20} /></button></div>
     <nav aria-label="Primary navigation">{navigation.map(({ key, label, icon: Icon }) => <button key={key} className={page === key ? 'active' : ''} onClick={() => { onNavigate(key); onClose() }} title={collapsed ? label : undefined}><Icon size={19} />{!collapsed && <span>{label}</span>}</button>)}</nav>
-    <div className="sidebar-footer">{!collapsed && <div className="demo-panel"><span>DEMO MODE</span><p>Frontend data only</p></div>}<button className="collapse-button" onClick={onCollapse}><ChevronLeft size={18} />{!collapsed && <span>Collapse sidebar</span>}</button></div>
+    <div className="sidebar-footer">{!collapsed && <div className="demo-panel"><span>LIVE SYSTEM</span><p>FastAPI and MongoDB data</p></div>}<button className="collapse-button" onClick={onCollapse}><ChevronLeft size={18} />{!collapsed && <span>Collapse sidebar</span>}</button></div>
   </aside>{mobileOpen && <div className="drawer-scrim" onClick={onClose} />}</>
 }

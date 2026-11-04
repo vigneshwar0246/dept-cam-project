@@ -52,8 +52,8 @@ class CameraCreate(BaseModel):
             value = str(self.source)
             if self.type == CameraType.RTSP and not value.lower().startswith(("rtsp://", "rtsps://")):
                 raise ValueError("RTSP source must use rtsp:// or rtsps://")
-            if self.type == CameraType.MOBILE and not value.lower().startswith(("http://", "https://", "rtsp://", "rtsps://")):
-                raise ValueError("mobile source must be an HTTP(S) MJPEG or RTSP URL")
+            if self.type == CameraType.MOBILE and not value.lower().startswith(("http://", "https://", "rtsp://", "rtsps://", "webrtc://")):
+                raise ValueError("mobile source must be an HTTP(S), RTSP, or WebRTC source")
         return self
 
 
@@ -72,4 +72,26 @@ class CameraUpdate(BaseModel):
 class CorrectionRequest(BaseModel):
     occupancy: int = Field(ge=0)
     reason: str = Field(min_length=3, max_length=500)
+
+
+class PairingCreate(BaseModel):
+    camera_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    camera_name: str = Field(min_length=1, max_length=100)
+    zone_id: str = Field(min_length=1, max_length=64)
+    width: int = Field(1280, ge=160, le=1920)
+    height: int = Field(720, ge=120, le=1080)
+    fps: float = Field(15, gt=0, le=30)
+
+
+class WebRTCOffer(BaseModel):
+    sdp: str = Field(min_length=1, max_length=1_000_000)
+    type: Literal["offer"] = "offer"
+    client_id: str = Field(min_length=16, max_length=128)
+
+
+class ICECandidate(BaseModel):
+    candidate: str = Field(max_length=4096)
+    sdp_mid: str | None = Field(default=None, max_length=64)
+    sdp_mline_index: int | None = Field(default=None, ge=0, le=32)
+    client_id: str = Field(min_length=16, max_length=128)
 

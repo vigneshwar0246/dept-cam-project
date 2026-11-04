@@ -52,3 +52,10 @@ def test_tracker_state_is_isolated_by_camera_id():
     first.update.assert_called_once()
     second.update.assert_called_once()
 
+
+def test_tracker_state_can_be_released_for_stopped_camera():
+    detector = PersonDetector(SimpleNamespace(), Settings(app_env="test", _env_file=None))
+    detector._trackers["camera"] = MagicMock()
+    detector.reset("camera")
+    assert "camera" not in detector._trackers
+

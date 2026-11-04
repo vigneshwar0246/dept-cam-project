@@ -21,9 +21,15 @@ $env:RUN_HARDWARE_TESTS='1'
 .\venv\Scripts\python.exe -m pytest -q tests\test_hardware_optional.py
 ```
 
-## Mobile phone over Wi-Fi
+## Mobile phone over QR + WebRTC
 
-The implemented transport is a real HTTP MJPEG or RTSP stream from a phone camera application. Browser WebRTC/QR pairing is **not implemented**; there is no signaling server or temporary pairing-token system, so the UI does not claim otherwise.
+Browser WebRTC pairing is implemented. Open **Camera Management**, select **Phone Camera**, enter the camera name, stable camera ID and zone, then scan the real one-time QR code. The phone page requests camera permission only after **Start streaming** is pressed. The unused QR token expires after 120 seconds; a claimed active stream has no fixed duration. See [phone-camera.md](phone-camera.md) and the root [camera_flow.md](../camera_flow.md).
+
+The backend reports capture as connected only after aiortc decodes a real frame. Live Monitoring stays **Connecting** until the shared YOLO/ByteTrack processor has produced its first annotated preview.
+
+## Legacy mobile IP-camera URL
+
+HTTP/HTTPS MJPEG and RTSP URLs from a phone IP-camera application remain supported through the generic **Laptop Camera** form by changing **Camera type** to **Mobile Camera**.
 
 1. Connect the phone and laptop to the same trusted Wi-Fi network. Guest networks often block device-to-device traffic.
 2. Install and start a reputable IP-camera application on the phone.
@@ -32,7 +38,7 @@ The implemented transport is a real HTTP MJPEG or RTSP stream from a phone camer
 5. Add a **Mobile Camera**, enter the URL, save, and start it.
 6. Reserve the phone IP in the router to keep the URL stable.
 
-Do not expose the phone stream to the public internet. A future browser-camera implementation will require HTTPS trusted by the phone, WebRTC signaling, ICE handling, expiring pairing tokens, and real Android/iOS testing.
+Do not expose either transport to the public internet. Browser pairing requires the trusted LAN HTTPS origin documented in `phone-camera.md`.
 
 ## RTSP CCTV
 

@@ -17,6 +17,33 @@
   }
 }
 
+.camera-create-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.row-actions .stop-camera-action { color: #b20f1c; }
+.phone-camera-button { border-color: #d71d2b; color: #b20f1c; background: #fff; }
+.phone-pairing { display: grid; gap: 18px; }
+.pairing-status { display: flex; align-items: center; gap: 9px; padding: 12px 14px; background: #f8f8f8; border-radius: 8px; text-transform: capitalize; }
+.pairing-status strong { margin-left: auto; color: #b20f1c; }
+.pairing-dot { width: 10px; height: 10px; border-radius: 50%; background: #d99a00; }
+.pairing-dot.camera_connected { background: #1c9850; }
+.pairing-dot.expired, .pairing-dot.cancelled, .pairing-dot.disconnected { background: #777; }
+.pairing-qr { width: min(260px, 100%); justify-self: center; border: 1px solid #eee; }
+.pairing-instructions { margin: 0; padding-left: 22px; color: #555; line-height: 1.7; }
+.pairing-preview { aspect-ratio: 16 / 9; background: #111; overflow: hidden; border-radius: 8px; }
+.pairing-preview img { width: 100%; height: 100%; object-fit: contain; }
+.pairing-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pairing-metrics span { display: grid; gap: 3px; padding: 10px; background: #f8f8f8; font-size: 12px; color: #666; }
+.pairing-metrics strong { color: #222; font-size: 14px; }
+.mobile-camera-page { min-height: 100dvh; display: grid; place-items: center; padding: 18px; background: #f4f4f4; }
+.mobile-camera-card { width: min(560px, 100%); display: grid; gap: 16px; padding: 24px; background: white; border-top: 4px solid #cf1524; box-shadow: 0 12px 35px rgb(0 0 0 / 10%); }
+.mobile-camera-card h1, .mobile-camera-card p { margin: 0; }
+.mobile-camera-brand { display: flex; align-items: center; gap: 9px; color: #b20f1c; font-weight: 700; }
+.mobile-local-preview { position: relative; aspect-ratio: 9 / 16; max-height: 60dvh; background: #161616; overflow: hidden; border-radius: 8px; }
+.mobile-local-preview video { width: 100%; height: 100%; object-fit: cover; }
+.mobile-local-preview span { position: absolute; left: 10px; right: 10px; bottom: 10px; padding: 8px 10px; border-radius: 6px; color: white; background: rgb(0 0 0 / 70%); font-size: 13px; }
+.mobile-camera-actions { display: grid; gap: 9px; }
+.secure-context-note { font-size: 12px; color: #666; }
+@media (max-width: 600px) { .mobile-camera-card { padding: 18px; } .camera-create-actions { width: 100%; } .camera-create-actions .button { flex: 1; } .pairing-metrics { grid-template-columns: repeat(2, 1fr); } }
+
 .hero {
   position: relative;
 

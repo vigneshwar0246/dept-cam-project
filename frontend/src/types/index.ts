@@ -28,6 +28,7 @@ export interface Camera {
   fps: number;
   captureFps: number;
   lastFrameAgeMs: number | null;
+  streamingDurationSeconds?: number;
   line: LineConfig;
 }
 
@@ -69,9 +70,14 @@ export interface BackendCamera {
   line: LineConfig;
   status: string;
   error: string | null;
+  processing_status: "idle" | "waiting_for_frame" | "active" | "error";
+  processing_error: string | null;
   capture_fps: number;
   last_frame_age_ms: number | null;
   has_frame: boolean;
+  streaming_duration_seconds?: number;
+  streaming_started_at?: string | null;
+  last_received_at?: string | null;
 }
 export interface AnalyticsPoint {
   period: string;

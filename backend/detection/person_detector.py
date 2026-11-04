@@ -28,6 +28,7 @@ class PersonDetector:
         self.loader, self.settings = loader, settings
         self._trackers: dict[str, BYTETracker] = {}
         self._inference_lock = Lock()
+        self._tracker_lock = Lock()
 
     def track(self, frame: np.ndarray, camera_id: str = "default") -> tuple[list[Detection], float]:
         started = perf_counter()
@@ -41,10 +42,15 @@ class PersonDetector:
         boxes = results[0].boxes
         if boxes is None:
             return [], latency_ms
-        tracker = self._trackers.get(camera_id)
-        if tracker is None:
-            cfg = IterableSimpleNamespace(**YAML.load(check_yaml(self.settings.tracker_config)))
-            tracker = self._trackers[camera_id] = BYTETracker(cfg)
-        tracked = tracker.update(boxes.cpu().numpy(), frame)
+        with self._tracker_lock:
+            tracker = self._trackers.get(camera_id)
+            if tracker is None:
+                cfg = IterableSimpleNamespace(**YAML.load(check_yaml(self.settings.tracker_config)))
+                tracker = self._trackers[camera_id] = BYTETracker(cfg)
+            tracked = tracker.update(boxes.cpu().numpy(), frame)
         return [Detection(int(row[4]), tuple(map(float, row[:4])), float(row[5])) for row in tracked], latency_ms
+
+    def reset(self, camera_id: str) -> None:
+        with self._tracker_lock:
+            self._trackers.pop(camera_id, None)
 

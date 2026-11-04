@@ -8,10 +8,11 @@ import { LiveMonitoring } from "./pages/LiveMonitoring";
 import { Login } from "./pages/Login";
 import { Overview } from "./pages/Overview";
 import { Settings } from "./pages/Settings";
+import { MobileCamera } from "./pages/MobileCamera";
 import type { PageKey } from "./types";
 import { setAdminKey } from "./services/api";
 import { systemService } from "./services/systemService";
-function App() {
+function DashboardApp() {
   const [authenticated, setAuthenticated] = useState(false);
   const [page, setPage] = useState<PageKey>("overview");
   const [collapsed, setCollapsed] = useState(false);
@@ -81,5 +82,8 @@ function App() {
       {content}
     </DashboardLayout>
   );
+}
+function App() {
+  return location.pathname.startsWith("/mobile-camera/") ? <MobileCamera /> : <DashboardApp />;
 }
 export default App;

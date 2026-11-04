@@ -17,6 +17,7 @@ from backend.database.repository import Repository
 from backend.detection.model_loader import ModelLoader
 from backend.detection.person_detector import PersonDetector
 from backend.services.camera_service import CameraService
+from backend.services.pairing_service import PairingService
 from backend.services.occupancy_service import OccupancyService
 from backend.utils.performance_monitor import PerformanceMonitor
 from backend.schemas.models import CameraCreate
@@ -34,6 +35,7 @@ class Container:
     model_loader: ModelLoader
     performance: PerformanceMonitor
     hub: WebSocketHub
+    pairing_service: PairingService | None = None
 
 
 def build_container(settings: Settings) -> Container:
@@ -43,7 +45,9 @@ def build_container(settings: Settings) -> Container:
     loader = ModelLoader(settings)
     occupancy_service = OccupancyService(occupancy, repository, hub)
     camera_service = CameraService(cameras, PersonDetector(loader, settings), occupancy_service, performance, settings)
-    return Container(settings, database, repository, cameras, occupancy, occupancy_service, camera_service, loader, performance, hub)
+    container = Container(settings, database, repository, cameras, occupancy, occupancy_service, camera_service, loader, performance, hub)
+    container.pairing_service = PairingService(container)
+    return container
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -54,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await container.database.connect()
+        container.pairing_service.start()
         container.repository.start()
         for row in await container.repository.cameras():
             try:
@@ -72,6 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
         snapshot_task.cancel()
         await container.camera_service.stop_all()
+        await container.pairing_service.close()
         container.occupancy_service.snapshot()
         await container.repository.close()
         await container.database.close()

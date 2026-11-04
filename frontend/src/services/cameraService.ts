@@ -13,6 +13,20 @@ export interface CameraPayload {
   enabled?: boolean;
   line?: LineConfig;
 }
+export interface PairingSession {
+  id: string;
+  camera_id: string;
+  status: string;
+  expires_at: string;
+  first_frame_at: string | null;
+  claimed_at?: string | null;
+  streaming_duration_seconds?: number;
+  capture_fps?: number;
+  processing_fps?: number;
+  latency_ms?: number;
+  pairing_url?: string;
+  ice_servers?: RTCIceServer[];
+}
 export const cameraService = {
   list: async () => (await api.get<BackendCamera[]>("/cameras")).data,
   create: async (payload: CameraPayload) =>
@@ -38,4 +52,18 @@ export const cameraService = {
     `${api.defaults.baseURL}/cameras/${encodeURIComponent(id)}/stream`,
   snapshotUrl: (id: string) =>
     `${api.defaults.baseURL}/cameras/${encodeURIComponent(id)}/snapshot`,
+  createPairing: async (payload: {
+    camera_id: string;
+    camera_name: string;
+    zone_id: string;
+  }) => (await api.post<PairingSession>("/phone-pairings", payload)).data,
+  pairingStatus: async (id: string, token: string) =>
+    (
+      await api.get<PairingSession>(`/phone-pairings/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    ).data,
+  cancelPairing: async (id: string) => {
+    await api.post(`/phone-pairings/${id}/cancel`);
+  },
 };

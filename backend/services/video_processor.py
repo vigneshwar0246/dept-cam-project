@@ -25,6 +25,8 @@ class VideoProcessor:
     def start(self) -> None:
         if not self.task or self.task.done():
             self._running = True
+            self.camera.processing_status = "waiting_for_frame"
+            self.camera.processing_error = None
             self.task = asyncio.create_task(self.run())
 
     async def stop(self) -> None:
@@ -34,6 +36,7 @@ class VideoProcessor:
             with suppress(asyncio.CancelledError):
                 await self.task
         self.task = None
+        self.camera.processing_status = "idle"
 
     async def run(self) -> None:
         sequence = -1
@@ -66,9 +69,13 @@ class VideoProcessor:
                 end = (int(self.camera.config.line.end.x * w), int(self.camera.config.line.end.y * h))
                 cv2.line(preview, start, end, (0, 200, 0), 2)
                 self.camera.preview_frames.put(preview)
+                self.camera.processing_status = "active"
+                self.camera.processing_error = None
                 total_latency = (monotonic() - captured_at) * 1000
                 self.performance.record(self.camera.config.id, latency, len(detections), event_latency, total_latency)
                 await self.occupancy.hub.broadcast({"type": "camera", "camera_id": self.camera.config.id, "status": self.camera.status, "people": len(detections), "inference_ms": latency, "total_latency_ms": total_latency}, self.camera.config.id)
-            except Exception:
+            except Exception as exc:
+                self.camera.processing_status = "error"
+                self.camera.processing_error = str(exc)
                 logger.exception("Video processing failed for camera %s", self.camera.config.id)
 

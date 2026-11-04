@@ -5,11 +5,13 @@ import {
   Plus,
   Search,
   Square,
+  Smartphone,
   Trash2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Camera, Performance, Zone } from "../types";
 import { CameraFormModal } from "../components/cameras/CameraFormModal";
+import { PhonePairingModal } from "../components/cameras/PhonePairingModal";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { cameraService } from "../services/cameraService";
 import { messageFromError } from "../services/api";
@@ -27,6 +29,7 @@ export function CameraManagement({
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Camera | null | undefined>();
   const [error, setError] = useState("");
+  const [phonePairing, setPhonePairing] = useState(false);
   const filtered = useMemo(
     () =>
       cameras.filter((c) =>
@@ -90,10 +93,7 @@ export function CameraManagement({
           <h2>Camera Management</h2>
           <p>Camera configurations persisted by the backend.</p>
         </div>
-        <button className="button primary" onClick={() => setEditing(null)}>
-          <Plus size={17} />
-          Add Camera
-        </button>
+        <div className="camera-create-actions"><button className="button primary" onClick={() => setEditing(null)}><Plus size={17} />Laptop Camera</button><button className="button secondary phone-camera-button" onClick={() => setPhonePairing(true)}><Smartphone size={17} />Phone Camera</button></div>
       </section>
       {error && <div className="demo-warning">{error}</div>}
       <section className="panel">
@@ -153,6 +153,7 @@ export function CameraManagement({
                           ?.average_total_latency_ms ?? 0
                       ).toFixed(1)}{" "}
                       ms total
+                      {camera.type === "Mobile Camera" && (camera.streamingDurationSeconds ?? 0) > 0 && <> · {Math.floor((camera.streamingDurationSeconds ?? 0) / 3600).toString().padStart(2, "0")}:{Math.floor((camera.streamingDurationSeconds ?? 0) % 3600 / 60).toString().padStart(2, "0")}:{Math.floor((camera.streamingDurationSeconds ?? 0) % 60).toString().padStart(2, "0")} streaming</>}
                     </small>
                   </td>
                   <td>
@@ -166,7 +167,9 @@ export function CameraManagement({
                         <Play size={17} />
                       </button>
                       <button
-                        title="Stop"
+                        className="stop-camera-action"
+                        title="Stop Camera"
+                        aria-label={`Stop Camera ${camera.name}`}
                         onClick={() =>
                           void run(() => cameraService.stop(camera.id))
                         }
@@ -205,6 +208,7 @@ export function CameraManagement({
           onClose={() => setEditing(undefined)}
         />
       )}
+      {phonePairing && <PhonePairingModal zones={zones} onClose={() => setPhonePairing(false)} onConnected={onRefresh} />}
     </div>
   );
 }

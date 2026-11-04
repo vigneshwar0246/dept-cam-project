@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     api_auth_secret: str = "change-me-in-production"
     admin_username: str = "admin"
     cors_origins: str = "http://localhost:5173"
+    phone_frontend_url: str = "https://localhost:5173"
+    pairing_ttl_seconds: int = Field(120, ge=30, le=600)
+    pairing_attempts_per_minute: int = Field(30, ge=5, le=300)
+    webrtc_reconnect_grace_seconds: int = Field(300, ge=30, le=3600)
+    webrtc_stun_urls: str = "stun:stun.l.google.com:19302"
+    webrtc_turn_urls: str = ""
+    webrtc_turn_username: str = ""
+    webrtc_turn_credential: str = ""
 
     @model_validator(mode="after")
     def secure_production_secret(self):

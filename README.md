@@ -2,11 +2,12 @@
 
 A real-time, privacy-conscious occupancy tracking system for department entrances. The backend accepts laptop webcams, mobile IP-camera streams, and RTSP CCTV feeds; detects people with YOLO11n; maintains anonymous tracks with ByteTrack; and updates occupancy only when a tracked person crosses a configured virtual line.
 
-The backend is functional and tested. The React frontend currently remains a Vite starter and must still be connected to the API; see [frontend/README.md](frontend/README.md) for its integration contract.
+The FastAPI backend and React dashboard are integrated. Camera Management, Live Monitoring, events, analytics, occupancy WebSockets and system status use real backend data.
 
 ## Features
 
 - Laptop webcam, HTTP/MJPEG mobile camera, and RTSP CCTV support
+- One-time QR pairing for Android/iPhone browser cameras over WebRTC
 - Multiple independent camera workers with automatic reconnects
 - Single reusable YOLO11n model with CUDA verification and CPU fallback
 - Independent ByteTrack state for each camera
@@ -93,7 +94,7 @@ API_AUTH_SECRET=use-a-long-random-secret-here
 For persistent storage, configure either local MongoDB:
 
 ```dotenv
-DATABASE_URL=mongodb://localhost:27017
+DATABASE_URL=mongodb://127.0.0.1:27017
 DATABASE_NAME=occupancy_tracking
 ```
 
@@ -102,20 +103,20 @@ or a MongoDB Atlas connection string. Do not commit `.env` or camera credentials
 Start the API:
 
 ```powershell
-uvicorn backend.main:app --host 127.0.0.1 --port 8000
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --ssl-certfile .certs\lan.pem --ssl-keyfile .certs\lan-key.pem
 ```
 
 Development auto-reload:
 
 ```powershell
-uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000 --ssl-certfile .certs\lan.pem --ssl-keyfile .certs\lan-key.pem
 ```
 
 Open:
 
-- Swagger UI: <http://127.0.0.1:8000/docs>
-- OpenAPI JSON: <http://127.0.0.1:8000/openapi.json>
-- Health check: <http://127.0.0.1:8000/api/health>
+- Swagger UI: <https://192.168.1.6:8000/docs>
+- OpenAPI JSON: <https://192.168.1.6:8000/openapi.json>
+- Health check: <https://192.168.1.6:8000/api/health>
 
 ## Verify CUDA and YOLO
 
@@ -159,7 +160,12 @@ All settings are read from environment variables or `.env` through Pydantic Sett
 | `WEBSOCKET_UPDATE_INTERVAL` | `1` | Heartbeat interval in seconds |
 | `PERSISTENCE_QUEUE_SIZE` | `1000` | Maximum queued database writes |
 | `API_AUTH_SECRET` | insecure example | Value expected in `X-API-Key` |
-| `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated frontend origins |
+| `CORS_ORIGINS` | current LAN HTTPS UI | Comma-separated exact frontend origins |
+| `PHONE_FRONTEND_URL` | current LAN HTTPS UI | Trusted, phone-reachable HTTPS origin placed in pairing QR codes |
+| `PAIRING_TTL_SECONDS` | `120` | Lifetime of an unused one-time pairing session |
+| `WEBRTC_RECONNECT_GRACE_SECONDS` | `300` | Cleanup delay for an interrupted, inactive peer; not an active-stream limit |
+| `WEBRTC_STUN_URLS` | Google public STUN | Comma-separated ICE discovery servers; may be empty for LAN-only host candidates |
+| `WEBRTC_TURN_*` | empty | Optional TURN URLs and environment-injected credentials |
 
 See [.env.example](.env.example) for the complete template. Production refuses to start with the built-in default API secret.
 
@@ -192,10 +198,10 @@ $body = @{
   }
 } | ConvertTo-Json -Depth 5
 
-Invoke-RestMethod http://127.0.0.1:8000/api/cameras `
+Invoke-RestMethod https://192.168.1.6:8000/api/cameras `
   -Method Post -Headers $headers -ContentType application/json -Body $body
 
-Invoke-RestMethod http://127.0.0.1:8000/api/cameras/laptop-door/start `
+Invoke-RestMethod https://192.168.1.6:8000/api/cameras/laptop-door/start `
   -Method Post -Headers $headers
 ```
 
@@ -222,6 +228,14 @@ Use:
 ```
 
 HTTP/HTTPS MJPEG and RTSP-style mobile streams are accepted.
+
+### Browser phone camera (QR + WebRTC)
+
+The Camera Management page also has a **Phone Camera** button beside **Laptop Camera**. It creates an administrator-authorized, one-use QR token that must be claimed within 120 seconds. After a phone claims it, the active WebRTC camera has no automatic duration limit and can run until the user selects **Stop Camera**. The QR token is stored in the URL fragment so it is not sent in the initial page request or server access logs. The phone explicitly grants camera access and sends encrypted WebRTC video; the backend does not mark it connected until the first decoded frame reaches the shared latest-frame buffer.
+
+Temporary network failures retain the same camera processor, ByteTrack instance, line counter, and occupancy state while the browser renegotiates a replacement peer connection. By default, an uninterrupted five-minute disconnection is treated as permanently closed and its resources are released. This grace period applies only while no media connection is active; it never limits a healthy stream.
+
+Mobile camera access requires a trusted HTTPS LAN origin. Follow the complete Windows, Android Chrome, iPhone Safari, firewall, STUN/TURN, and troubleshooting guide in [docs/phone-camera.md](docs/phone-camera.md).
 
 ### RTSP CCTV
 
@@ -277,7 +291,7 @@ If the system was offline while people entered or exited, the missed crossings c
 
 ```powershell
 $correction = @{ occupancy = 12; reason = 'Physical headcount after outage' } | ConvertTo-Json
-Invoke-RestMethod http://127.0.0.1:8000/api/occupancy/department-a/correction `
+Invoke-RestMethod https://192.168.1.6:8000/api/occupancy/department-a/correction `
   -Method Post -Headers $headers -ContentType application/json -Body $correction
 ```
 
@@ -307,7 +321,7 @@ Run the full non-hardware suite:
 Current verified result:
 
 ```text
-12 passed, 1 skipped
+32 passed, 1 skipped
 ```
 
 The skipped test requires a real webcam and CUDA GPU. Run it explicitly:
@@ -327,7 +341,7 @@ Other verification commands:
 
 ## Frontend
 
-The frontend is a separate React 19 + TypeScript + Vite application. It currently shows the starter UI and does not yet consume occupancy APIs.
+The frontend is a React 19 + TypeScript + Vite dashboard connected to the backend REST and WebSocket APIs.
 
 ```powershell
 Set-Location D:\Department-Occupancy-Tracking\frontend
@@ -335,7 +349,7 @@ npm install
 npm run dev
 ```
 
-The default frontend URL is <http://localhost:5173>, already included in the backend's default CORS configuration. See [frontend/README.md](frontend/README.md) for expected API and WebSocket integration.
+For the current trusted LAN configuration, open <https://192.168.1.6:5173>. Do not mix this origin with localhost because the exact HTTPS origin is enforced by CORS and is embedded in phone pairing URLs.
 
 ## Privacy and security
 
@@ -389,10 +403,10 @@ Check that `DATABASE_URL` is populated and `/api/health` reports `connected`. An
 - [API reference](docs/api-reference.md)
 - [Performance](docs/performance.md)
 - [Privacy and security](docs/privacy-security.md)
+- [Phone camera pairing](docs/phone-camera.md)
 
 ## Known limitations
 
-- The React dashboard has not yet been implemented beyond the Vite starter.
 - Live MongoDB Atlas/local connectivity depends on deployment credentials and was not required by automated tests.
 - Real webcam and sustained multi-camera load testing remain environment-specific.
 - Snapshot recovery cannot account for crossings that happen while the system is offline.

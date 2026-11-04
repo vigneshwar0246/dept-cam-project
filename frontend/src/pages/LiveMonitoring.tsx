@@ -1,17 +1,27 @@
 import { Camera as CameraIcon, Grid2X2, LayoutGrid, Rows3 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Camera, Performance } from "../types";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { cameraService } from "../services/cameraService";
 function Preview({ camera }: { camera: Camera }) {
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const url =
     camera.status === "Online" ? cameraService.streamUrl(camera.id) : "";
+  useEffect(() => {
+    if (camera.status !== "Online" || !failed) return;
+    const timer = window.setTimeout(() => {
+      setAttempt((value) => value + 1);
+      setFailed(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [camera.status, failed]);
   return (
     <div className="camera-preview">
       {url && !failed ? (
         <img
-          src={url}
+          key={`${camera.id}-${attempt}`}
+          src={`${url}?attempt=${attempt}`}
           alt={`Latest frame from ${camera.name}`}
           onError={() => setFailed(true)}
           onLoad={() => setFailed(false)}
@@ -54,11 +64,10 @@ export function LiveMonitoring({
     <div className="page-stack">
       <section className="page-intro">
         <div>
-          <div className="eyebrow">CONTROLLED SNAPSHOT REFRESH</div>
+          <div className="eyebrow">PROCESSED LIVE VIDEO</div>
           <h2>Live Monitoring</h2>
           <p>
-            Latest backend frames refresh every three seconds for running
-            cameras.
+            Continuous processed previews with detections, tracking IDs and counting lines.
           </p>
         </div>
       </section>
@@ -104,6 +113,7 @@ export function LiveMonitoring({
                 )}{" "}
                 processing FPS
               </span>
+              {camera.location !== "Configured camera source" && <span>{camera.location}</span>}
               <span>
                 {(
                   performance?.cameras[camera.id]?.average_total_latency_ms ?? 0

@@ -5,12 +5,12 @@ import cv2
 import torch
 import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
 
 from backend.api.dependencies import get_state
 from backend.core.security import require_admin
-from backend.schemas.models import CameraCreate, CameraUpdate, CorrectionRequest
+from backend.schemas.models import CameraCreate, CameraUpdate, CorrectionRequest, ICECandidate, PairingCreate, WebRTCOffer
 
 router = APIRouter(prefix="/api")
 Admin = Annotated[None, Depends(require_admin)]
@@ -26,6 +26,10 @@ def camera_or_404(container, camera_id: str):
         return container.camera_manager.get(camera_id)
     except KeyError:
         raise HTTPException(404, "Camera not found")
+
+
+def processed_frame(camera, sequence: int = -1):
+    return camera.preview_frames.get(sequence)
 
 
 def discover_local_cameras(max_devices: int) -> list[dict]:
@@ -95,6 +99,9 @@ async def update_camera(camera_id: str, payload: CameraUpdate, _: Admin, contain
 async def delete_camera(camera_id: str, _: Admin, container=Depends(get_state)):
     camera_or_404(container, camera_id)
     await container.camera_service.stop(camera_id)
+    for session in list(container.pairing_service.sessions.values()):
+        if session.camera_id == camera_id:
+            await container.pairing_service.cancel(session.id, disconnected=True)
     container.camera_manager.remove(camera_id)
     await container.repository.delete_camera(camera_id)
     return Response(status_code=204)
@@ -111,7 +118,55 @@ async def start_camera(camera_id: str, _: Admin, container=Depends(get_state)):
 async def stop_camera(camera_id: str, _: Admin, container=Depends(get_state)):
     camera_or_404(container, camera_id)
     await container.camera_service.stop(camera_id)
+    for session in list(container.pairing_service.sessions.values()):
+        if session.camera_id == camera_id:
+            await container.pairing_service.cancel(session.id, disconnected=True)
     return {"status": "stopped", "camera_id": camera_id}
+
+
+def pairing_token(authorization: str | None) -> str:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Pairing token required")
+    return authorization[7:]
+
+
+@router.post("/phone-pairings", status_code=201)
+async def create_phone_pairing(payload: PairingCreate, _: Admin, container=Depends(get_state)):
+    return await container.pairing_service.create(payload)
+
+
+@router.get("/phone-pairings/{session_id}")
+async def phone_pairing_status(session_id: str, request: Request, authorization: str | None = Header(default=None), container=Depends(get_state)):
+    session = container.pairing_service.authenticate(session_id, pairing_token(authorization), request.client.host if request.client else "unknown")
+    return {**container.pairing_service.public(session), "ice_servers": container.pairing_service.ice_servers()}
+
+
+@router.post("/phone-pairings/{session_id}/offer")
+async def phone_pairing_offer(session_id: str, payload: WebRTCOffer, request: Request, authorization: str | None = Header(default=None), container=Depends(get_state)):
+    session = container.pairing_service.authenticate(session_id, pairing_token(authorization), request.client.host if request.client else "unknown")
+    return await container.pairing_service.offer(session, payload)
+
+
+@router.post("/phone-pairings/{session_id}/candidates", status_code=204)
+async def phone_pairing_candidate(session_id: str, payload: ICECandidate, request: Request, authorization: str | None = Header(default=None), container=Depends(get_state)):
+    session = container.pairing_service.authenticate(session_id, pairing_token(authorization), request.client.host if request.client else "unknown")
+    await container.pairing_service.add_candidate(session, payload)
+    return Response(status_code=204)
+
+
+@router.post("/phone-pairings/{session_id}/cancel")
+async def cancel_phone_pairing(session_id: str, _: Admin, container=Depends(get_state)):
+    if session_id not in container.pairing_service.sessions:
+        raise HTTPException(404, "Pairing session not found")
+    await container.pairing_service.cancel(session_id)
+    return {"status": "cancelled"}
+
+
+@router.post("/phone-pairings/{session_id}/disconnect")
+async def disconnect_phone_pairing(session_id: str, request: Request, authorization: str | None = Header(default=None), container=Depends(get_state)):
+    container.pairing_service.authenticate(session_id, pairing_token(authorization), request.client.host if request.client else "unknown")
+    await container.pairing_service.cancel(session_id, disconnected=True)
+    return {"status": "disconnected"}
 
 
 @router.get("/cameras/{camera_id}/snapshot")
@@ -133,7 +188,7 @@ async def camera_stream(camera_id: str, container=Depends(get_state)):
     async def frames():
         sequence = -1
         while camera.status in {"running", "connecting", "reconnecting"}:
-            item = camera.preview_frames.get(sequence) or camera.frames.get(sequence)
+            item = processed_frame(camera, sequence)
             if item is None:
                 await asyncio.sleep(0.03)
                 continue

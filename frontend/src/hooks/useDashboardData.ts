@@ -33,7 +33,7 @@ export const mapCamera = (row: BackendCamera): Camera => ({
         ? "CCTV / RTSP Camera"
         : "Mobile Camera",
   zone: row.zone_id,
-  location: row.error ?? "Configured camera source",
+  location: row.processing_error ?? row.error ?? "Configured camera source",
   connectionMethod:
     row.type === "laptop"
       ? "Webcam device"
@@ -41,7 +41,7 @@ export const mapCamera = (row: BackendCamera): Camera => ({
         ? "RTSP stream"
         : "Mobile stream",
   connectionDetails: String(row.source),
-  status: labelStatus(row.status),
+  status: row.status === "running" && row.processing_status !== "active" ? (row.processing_status === "error" ? "Offline" : "Connecting") : labelStatus(row.status),
   enabled: row.enabled,
   addedDate: "—",
   lastActive:
@@ -53,6 +53,7 @@ export const mapCamera = (row: BackendCamera): Camera => ({
   fps: row.fps,
   captureFps: row.capture_fps,
   lastFrameAgeMs: row.last_frame_age_ms,
+  streamingDurationSeconds: row.streaming_duration_seconds ?? 0,
   line: row.line,
 });
 

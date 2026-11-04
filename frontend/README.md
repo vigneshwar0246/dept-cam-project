@@ -31,7 +31,7 @@ npm install
 npm run dev
 ```
 
-Open <http://localhost:5173>.
+Open <https://192.168.1.6:5173> for the current trusted LAN deployment. Do not switch to localhost because CORS and phone pairing use the exact LAN origin.
 
 ## Available scripts
 
@@ -47,19 +47,19 @@ npm run preview  # preview the generated production build
 The backend defaults are:
 
 ```text
-REST API:  http://127.0.0.1:8000/api
-Swagger:   http://127.0.0.1:8000/docs
-Occupancy: ws://127.0.0.1:8000/ws/occupancy
-Cameras:   ws://127.0.0.1:8000/ws/cameras/{camera_id}
+REST API:  https://192.168.1.6:8000/api
+Swagger:   https://192.168.1.6:8000/docs
+Occupancy: wss://192.168.1.6:8000/ws/occupancy
+Cameras:   wss://192.168.1.6:8000/ws/cameras/{camera_id}
 ```
 
-The backend permits `http://localhost:5173` through CORS by default. If the frontend runs elsewhere, add its origin to `CORS_ORIGINS` in the root `.env` file.
+The backend must permit the exact `https://192.168.1.6:5173` origin through `CORS_ORIGINS`. Opening the frontend through localhost is a different origin and is intentionally rejected.
 
 For deployment-specific URLs, add a frontend environment file:
 
 ```dotenv
-VITE_API_URL=http://127.0.0.1:8000/api
-VITE_WS_URL=ws://127.0.0.1:8000
+VITE_API_URL=https://192.168.1.6:8000/api
+VITE_WS_URL=wss://192.168.1.6:8000
 ```
 
 Only variables prefixed with `VITE_` are exposed to browser code. Never put MongoDB credentials, camera passwords, or the administrator API key in a committed frontend environment file.

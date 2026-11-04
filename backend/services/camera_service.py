@@ -25,6 +25,8 @@ class CameraService:
         if camera_id in self.processors:
             await self.processors.pop(camera_id).stop()
         self.manager.get(camera_id).stop()
+        self.detector.reset(camera_id)
+        self.performance.reset(camera_id)
 
     async def update(self, camera_id: str, payload: CameraUpdate):
         camera = self.manager.get(camera_id)

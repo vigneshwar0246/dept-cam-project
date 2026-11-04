@@ -64,6 +64,6 @@ class CameraManager:
     def public(camera: BaseCamera) -> dict:
         data = camera.config.model_dump(mode="json")
         data["source"] = redact_url(camera.config.source)
-        data.update(status=camera.status, error=camera.last_error, **camera.health())
+        data.update(status=camera.status, error=camera.last_error, processing_status=camera.processing_status, processing_error=camera.processing_error, **camera.health())
         return data
 

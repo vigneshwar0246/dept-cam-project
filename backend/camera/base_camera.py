@@ -33,6 +33,8 @@ class BaseCamera(ABC):
         self.preview_frames = LatestFrameBuffer()
         self.status = "stopped"
         self.last_error: str | None = None
+        self.processing_status = "idle"
+        self.processing_error: str | None = None
         self._frame_times: deque[float] = deque(maxlen=60)
         self._stop = Event()
         self._thread: Thread | None = None
