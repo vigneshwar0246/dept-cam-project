@@ -1,5 +1,6 @@
 import logging
 from abc import ABC
+from collections import deque
 from threading import Event, Thread
 from time import monotonic
 from urllib.parse import urlsplit, urlunsplit
@@ -29,8 +30,10 @@ class BaseCamera(ABC):
     def __init__(self, config: CameraCreate) -> None:
         self.config = config
         self.frames = LatestFrameBuffer()
+        self.preview_frames = LatestFrameBuffer()
         self.status = "stopped"
         self.last_error: str | None = None
+        self._frame_times: deque[float] = deque(maxlen=60)
         self._stop = Event()
         self._thread: Thread | None = None
         self._capture: cv2.VideoCapture | None = None
@@ -38,6 +41,8 @@ class BaseCamera(ABC):
     def _open(self) -> cv2.VideoCapture:
         backend = cv2.CAP_DSHOW if isinstance(self.config.source, int) else cv2.CAP_FFMPEG
         capture = cv2.VideoCapture(self.config.source, backend)
+        capture.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 3000)
+        capture.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 3000)
         capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.config.width)
         capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.config.height)
         capture.set(cv2.CAP_PROP_FPS, self.config.fps)
@@ -74,6 +79,7 @@ class BaseCamera(ABC):
                 self.last_error = None
             ok, frame = self._capture.read()
             if ok and frame is not None:
+                self._frame_times.append(monotonic())
                 self.frames.put(frame)
                 continue
             self.status = "reconnecting"
@@ -85,6 +91,16 @@ class BaseCamera(ABC):
             self._capture.release()
         self._capture = None
         self.status = "stopped"
+
+    def health(self) -> dict:
+        now = monotonic()
+        recent = [value for value in self._frame_times if now - value <= 2]
+        capture_fps = (len(recent) - 1) / (recent[-1] - recent[0]) if len(recent) > 1 else 0
+        return {
+            "capture_fps": capture_fps,
+            "last_frame_age_ms": (now - self._frame_times[-1]) * 1000 if self._frame_times else None,
+            "has_frame": bool(self._frame_times),
+        }
 
     def stop(self) -> None:
         self._stop.set()

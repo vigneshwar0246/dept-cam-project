@@ -3,7 +3,10 @@ from typing import Annotated
 
 import cv2
 import torch
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import StreamingResponse
 
 from backend.api.dependencies import get_state
 from backend.core.security import require_admin
@@ -13,11 +16,28 @@ router = APIRouter(prefix="/api")
 Admin = Annotated[None, Depends(require_admin)]
 
 
+@router.get("/admin/verify")
+async def verify_admin(_: Admin):
+    return {"authorized": True}
+
+
 def camera_or_404(container, camera_id: str):
     try:
         return container.camera_manager.get(camera_id)
     except KeyError:
         raise HTTPException(404, "Camera not found")
+
+
+def discover_local_cameras(max_devices: int) -> list[dict]:
+    devices = []
+    for index in range(max_devices):
+        capture = cv2.VideoCapture(index, cv2.CAP_DSHOW)
+        try:
+            if capture.isOpened():
+                devices.append({"index": index, "width": int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)), "height": int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)), "fps": capture.get(cv2.CAP_PROP_FPS)})
+        finally:
+            capture.release()
+    return devices
 
 
 @router.get("/health")
@@ -43,6 +63,11 @@ async def cameras(container=Depends(get_state)):
     return [container.camera_manager.public(item) for item in container.camera_manager.list()]
 
 
+@router.get("/cameras/discover/local")
+async def discover_cameras(_: Admin, max_devices: int = Query(5, ge=1, le=10)):
+    return await asyncio.to_thread(discover_local_cameras, max_devices)
+
+
 @router.post("/cameras", status_code=201)
 async def create_camera(payload: CameraCreate, _: Admin, container=Depends(get_state)):
     try:
@@ -61,7 +86,7 @@ async def get_camera(camera_id: str, container=Depends(get_state)):
 @router.put("/cameras/{camera_id}")
 async def update_camera(camera_id: str, payload: CameraUpdate, _: Admin, container=Depends(get_state)):
     camera_or_404(container, camera_id)
-    camera = container.camera_manager.update(camera_id, payload)
+    camera = await container.camera_service.update(camera_id, payload)
     await container.repository.save_camera(camera.config.model_dump(mode="json"))
     return container.camera_manager.public(camera)
 
@@ -91,13 +116,34 @@ async def stop_camera(camera_id: str, _: Admin, container=Depends(get_state)):
 
 @router.get("/cameras/{camera_id}/snapshot")
 async def snapshot(camera_id: str, container=Depends(get_state)):
-    item = camera_or_404(container, camera_id).frames.get(copy=True)
+    camera = camera_or_404(container, camera_id)
+    item = camera.preview_frames.get(copy=True) or camera.frames.get(copy=True)
     if item is None:
         raise HTTPException(503, "No camera frame available")
     ok, image = cv2.imencode(".jpg", item[0], [cv2.IMWRITE_JPEG_QUALITY, 80])
     if not ok:
         raise HTTPException(500, "Snapshot encoding failed")
     return Response(image.tobytes(), media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/cameras/{camera_id}/stream")
+async def camera_stream(camera_id: str, container=Depends(get_state)):
+    camera = camera_or_404(container, camera_id)
+
+    async def frames():
+        sequence = -1
+        while camera.status in {"running", "connecting", "reconnecting"}:
+            item = camera.preview_frames.get(sequence) or camera.frames.get(sequence)
+            if item is None:
+                await asyncio.sleep(0.03)
+                continue
+            frame, sequence, _ = item
+            ok, image = await asyncio.to_thread(cv2.imencode, ".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+            if ok:
+                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + image.tobytes() + b"\r\n"
+            await asyncio.sleep(0.03)
+
+    return StreamingResponse(frames(), media_type="multipart/x-mixed-replace; boundary=frame", headers={"Cache-Control": "no-store"})
 
 
 @router.get("/cameras/{camera_id}/config")
@@ -108,7 +154,7 @@ async def get_camera_config(camera_id: str, container=Depends(get_state)):
 @router.put("/cameras/{camera_id}/config")
 async def update_camera_config(camera_id: str, payload: CameraUpdate, _: Admin, container=Depends(get_state)):
     camera_or_404(container, camera_id)
-    camera = container.camera_manager.update(camera_id, payload)
+    camera = await container.camera_service.update(camera_id, payload)
     await container.repository.save_camera(camera.config.model_dump(mode="json"))
     return container.camera_manager.public(camera)
 

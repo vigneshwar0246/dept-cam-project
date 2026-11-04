@@ -257,7 +257,8 @@ Touching the line is not enough to count. The track must move from one side to t
 | Health | `GET /api/health`, `/api/system/status`, `/api/system/performance` |
 | Cameras | `GET/POST /api/cameras`, `GET/PUT/DELETE /api/cameras/{id}` |
 | Camera control | `POST /api/cameras/{id}/start`, `/stop` |
-| Camera preview/config | `GET /api/cameras/{id}/snapshot`, `GET/PUT /api/cameras/{id}/config` |
+| Camera preview/config | `GET /api/cameras/{id}/stream`, `/snapshot`, `GET/PUT /api/cameras/{id}/config` |
+| Local discovery | `GET /api/cameras/discover/local` (administrator) |
 | Occupancy | `GET /api/occupancy`, `GET /api/occupancy/{zone}` |
 | Correction/history | `POST /api/occupancy/{zone}/correction`, `GET /api/occupancy/history` |
 | Events | `GET /api/events`, `GET /api/events/summary` |
@@ -268,7 +269,7 @@ Mutating camera operations and occupancy corrections require `X-API-Key`. Histor
 
 ### WebSocket payloads
 
-`/ws/occupancy` sends occupancy heartbeats and crossing/correction broadcasts. `/ws/cameras/{camera_id}` sends camera connection state, people count, and measured inference latency. Raw video frames are deliberately not broadcast; request occasional JPEG previews through the snapshot endpoint.
+`/ws/occupancy` sends occupancy heartbeats and crossing/correction broadcasts. `/ws/cameras/{camera_id}` sends camera connection state, people count, and measured inference latency. Raw frames are not sent over WebSockets; visible previews use the processed MJPEG stream endpoint, while snapshots support calibration.
 
 ## Occupancy corrections
 

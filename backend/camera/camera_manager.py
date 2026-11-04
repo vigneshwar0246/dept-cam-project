@@ -17,6 +17,11 @@ class CameraManager:
         with self._lock:
             if config.id in self._cameras:
                 raise ValueError("camera already exists")
+            if config.type == CameraType.LAPTOP and any(
+                item.config.type == CameraType.LAPTOP and item.config.source == config.source
+                for item in self._cameras.values()
+            ):
+                raise ValueError("laptop camera device is already configured")
             camera = classes[config.type](config)
             self._cameras[config.id] = camera
             return camera
@@ -59,6 +64,6 @@ class CameraManager:
     def public(camera: BaseCamera) -> dict:
         data = camera.config.model_dump(mode="json")
         data["source"] = redact_url(camera.config.source)
-        data.update(status=camera.status, error=camera.last_error)
+        data.update(status=camera.status, error=camera.last_error, **camera.health())
         return data
 

@@ -1,6 +1,9 @@
 import asyncio
 import logging
+from contextlib import suppress
 from time import monotonic
+
+import cv2
 
 from backend.camera.base_camera import BaseCamera
 from backend.counting.line_counter import LineCounter
@@ -26,8 +29,11 @@ class VideoProcessor:
 
     async def stop(self) -> None:
         self._running = False
-        if self.task:
-            await self.task
+        if self.task and not self.task.done():
+            self.task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self.task
+        self.task = None
 
     async def run(self) -> None:
         sequence = -1
@@ -51,8 +57,18 @@ class VideoProcessor:
                     if crossing:
                         event_latency = (monotonic() - captured_at) * 1000
                         await self.occupancy.event(self.camera.config.zone_id, self.camera.config.id, crossing.event_type, crossing.track_id, self.camera.config.duplicate_group)
-                self.performance.record(self.camera.config.id, latency, len(detections), event_latency)
-                await self.occupancy.hub.broadcast({"type": "camera", "camera_id": self.camera.config.id, "status": self.camera.status, "people": len(detections), "inference_ms": latency}, self.camera.config.id)
+                preview = frame.copy()
+                for detection in detections:
+                    x1, y1, x2, y2 = map(int, detection.box)
+                    cv2.rectangle(preview, (x1, y1), (x2, y2), (0, 0, 220), 2)
+                    cv2.putText(preview, f"ID {detection.track_id}", (x1, max(18, y1 - 7)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 220), 2)
+                start = (int(self.camera.config.line.start.x * w), int(self.camera.config.line.start.y * h))
+                end = (int(self.camera.config.line.end.x * w), int(self.camera.config.line.end.y * h))
+                cv2.line(preview, start, end, (0, 200, 0), 2)
+                self.camera.preview_frames.put(preview)
+                total_latency = (monotonic() - captured_at) * 1000
+                self.performance.record(self.camera.config.id, latency, len(detections), event_latency, total_latency)
+                await self.occupancy.hub.broadcast({"type": "camera", "camera_id": self.camera.config.id, "status": self.camera.status, "people": len(detections), "inference_ms": latency, "total_latency_ms": total_latency}, self.camera.config.id)
             except Exception:
                 logger.exception("Video processing failed for camera %s", self.camera.config.id)
 

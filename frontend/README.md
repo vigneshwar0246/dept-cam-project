@@ -4,13 +4,14 @@ React + TypeScript + Vite frontend for the Department Occupancy Tracking System.
 
 ## Current status
 
-The frontend is a complete standalone demonstration dashboard with Overview,
-Live Monitoring, Camera Management, Events, Analytics, and Settings screens.
-It uses realistic mock data and does not make backend requests.
+Overview, Live Monitoring, Camera Management, Events, Analytics, and Settings
+connect to the FastAPI REST and WebSocket APIs. Camera configuration is
+persisted by the backend. Zone capacity is a browser-local display preference
+because the backend has no independent zone CRUD API.
 
-Camera and zone configurations persist in browser `localStorage`. Camera stream
-addresses are masked after saving and demo previews are explicitly labelled as
-not connected.
+The login accepts the backend administrator API key. The key is kept only in
+memory, sent as `X-API-Key` for protected requests, and cleared on refresh or
+logout. It is not a username/password account system.
 
 ## Technology
 

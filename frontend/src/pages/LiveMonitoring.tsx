@@ -1,14 +1,124 @@
-import { Camera as CameraIcon, Expand, Grid2X2, Info, LayoutGrid, Rows3, WifiOff } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import type { Camera } from '../types'
-import { StatusBadge } from '../components/common/StatusBadge'
-
-export function LiveMonitoring({ cameras }: { cameras: Camera[] }) {
-  const [filter, setFilter] = useState('All Cameras')
-  const [columns, setColumns] = useState(3)
-  const filtered = useMemo(() => filter === 'All Cameras' ? cameras : cameras.filter((camera) => camera.status === filter), [cameras, filter])
-  return <div className="page-stack"><section className="page-intro"><div><div className="eyebrow"><span className="live-dot" />DEMO MONITORING</div><h2>Live Monitoring</h2><p>Camera availability and zone activity. Preview streams are not connected.</p></div><div className="summary-strip"><strong>{cameras.filter((camera) => camera.status === 'Online').length}</strong><span>online</span><i /><strong>{cameras.filter((camera) => camera.status === 'Offline').length}</strong><span>offline</span></div></section>
-    <section className="toolbar"><div className="filter-tabs">{['All Cameras', 'Online', 'Offline', 'Connecting'].map((item) => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div><div className="layout-switch" aria-label="Camera grid columns"><button className={columns === 2 ? 'active' : ''} onClick={() => setColumns(2)} title="2 columns"><Grid2X2 size={18}/></button><button className={columns === 3 ? 'active' : ''} onClick={() => setColumns(3)} title="3 columns"><Rows3 size={18}/></button><button className={columns === 4 ? 'active' : ''} onClick={() => setColumns(4)} title="4 columns"><LayoutGrid size={18}/></button></div></section>
-    {filtered.length ? <section className={`camera-grid columns-${columns}`}>{filtered.map((camera) => <article className="camera-card" key={camera.id}><div className="camera-preview"><div className="scan-line"/><CameraIcon size={38}/><strong>Demo Preview — No Live Feed</strong><span>{camera.id} · {camera.zone}</span><div className="preview-status"><StatusBadge value={camera.status}/></div><button className="preview-expand" aria-label="Full screen preview"><Expand size={17}/></button></div><div className="camera-card-body"><div><h3>{camera.name}</h3><p>{camera.location}</p></div><strong className="occupancy-number">{camera.status === 'Online' ? (camera.id.charCodeAt(camera.id.length - 1) * 3) % 43 : '—'}<small>occupancy</small></strong></div><footer><span>Updated {camera.lastActive}</span><button><Info size={16}/>Details</button></footer></article>)}</section> : <section className="empty-state"><WifiOff size={36}/><h3>No cameras match this filter</h3><p>Choose another status or add a camera in Camera Management.</p></section>}
-  </div>
+import { Camera as CameraIcon, Grid2X2, LayoutGrid, Rows3 } from "lucide-react";
+import { useMemo, useState } from "react";
+import type { Camera, Performance } from "../types";
+import { StatusBadge } from "../components/common/StatusBadge";
+import { cameraService } from "../services/cameraService";
+function Preview({ camera }: { camera: Camera }) {
+  const [failed, setFailed] = useState(false);
+  const url =
+    camera.status === "Online" ? cameraService.streamUrl(camera.id) : "";
+  return (
+    <div className="camera-preview">
+      {url && !failed ? (
+        <img
+          src={url}
+          alt={`Latest frame from ${camera.name}`}
+          onError={() => setFailed(true)}
+          onLoad={() => setFailed(false)}
+        />
+      ) : (
+        <>
+          <CameraIcon size={38} />
+          <strong>
+            {camera.status === "Online"
+              ? failed
+                ? "No frame available"
+                : "Loading latest frame…"
+              : "Camera is not running"}
+          </strong>
+        </>
+      )}
+      <div className="preview-status">
+        <StatusBadge value={camera.status} />
+      </div>
+    </div>
+  );
+}
+export function LiveMonitoring({
+  cameras,
+  performance,
+}: {
+  cameras: Camera[];
+  performance: Performance | null;
+}) {
+  const [filter, setFilter] = useState("All Cameras");
+  const [columns, setColumns] = useState(3);
+  const filtered = useMemo(
+    () =>
+      filter === "All Cameras"
+        ? cameras
+        : cameras.filter((c) => c.status === filter),
+    [cameras, filter],
+  );
+  return (
+    <div className="page-stack">
+      <section className="page-intro">
+        <div>
+          <div className="eyebrow">CONTROLLED SNAPSHOT REFRESH</div>
+          <h2>Live Monitoring</h2>
+          <p>
+            Latest backend frames refresh every three seconds for running
+            cameras.
+          </p>
+        </div>
+      </section>
+      <section className="toolbar">
+        <div className="filter-tabs">
+          {["All Cameras", "Online", "Offline", "Connecting"].map((item) => (
+            <button
+              key={item}
+              className={filter === item ? "active" : ""}
+              onClick={() => setFilter(item)}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+        <div className="layout-switch">
+          <button onClick={() => setColumns(2)}>
+            <Grid2X2 />
+          </button>
+          <button onClick={() => setColumns(3)}>
+            <Rows3 />
+          </button>
+          <button onClick={() => setColumns(4)}>
+            <LayoutGrid />
+          </button>
+        </div>
+      </section>
+      <section className={`camera-grid columns-${columns}`}>
+        {filtered.map((camera) => (
+          <article className="camera-card" key={camera.id}>
+            <Preview camera={camera} />
+            <div className="camera-card-body">
+              <div>
+                <h3>{camera.name}</h3>
+                <p>{camera.zone}</p>
+              </div>
+            </div>
+            <footer>
+              <span>
+                {camera.captureFps.toFixed(1)} capture FPS ·{" "}
+                {(performance?.cameras[camera.id]?.processing_fps ?? 0).toFixed(
+                  1,
+                )}{" "}
+                processing FPS
+              </span>
+              <span>
+                {(
+                  performance?.cameras[camera.id]?.average_total_latency_ms ?? 0
+                ).toFixed(1)}{" "}
+                ms total · {camera.lastActive}
+              </span>
+            </footer>
+          </article>
+        ))}
+      </section>
+      {!filtered.length && (
+        <div className="empty-state">
+          <h3>No cameras available</h3>
+        </div>
+      )}
+    </div>
+  );
 }

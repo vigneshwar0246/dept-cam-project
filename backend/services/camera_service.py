@@ -4,6 +4,7 @@ from backend.detection.person_detector import PersonDetector
 from backend.services.occupancy_service import OccupancyService
 from backend.services.video_processor import VideoProcessor
 from backend.utils.performance_monitor import PerformanceMonitor
+from backend.schemas.models import CameraUpdate
 
 
 class CameraService:
@@ -24,6 +25,15 @@ class CameraService:
         if camera_id in self.processors:
             await self.processors.pop(camera_id).stop()
         self.manager.get(camera_id).stop()
+
+    async def update(self, camera_id: str, payload: CameraUpdate):
+        camera = self.manager.get(camera_id)
+        was_running = camera.status in {"running", "connecting", "reconnecting"}
+        await self.stop(camera_id)
+        updated = self.manager.update(camera_id, payload)
+        if was_running:
+            self.start(camera_id)
+        return updated
 
     async def stop_all(self) -> None:
         for camera_id in list(self.processors):

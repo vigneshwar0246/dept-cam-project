@@ -1,11 +1,134 @@
-import { Download, TrendingUp } from 'lucide-react'
-import { useState } from 'react'
-import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { occupancyTrend, weeklyData } from '../data/mockData'
-import type { Zone } from '../types'
-import { exportCsv } from '../utils/csvExport'
-
-export function Analytics({ zones }: { zones: Zone[] }) {
-  const [period, setPeriod] = useState('Last 7 Days'); const [zone, setZone] = useState('All zones'); const zoneData = zones.map((item) => ({ name: item.name.replace('Department ', ''), occupancy: item.occupancy }))
-  return <div className="page-stack"><section className="page-intro"><div><div className="eyebrow">DEMONSTRATION DATA</div><h2>Occupancy Analytics</h2><p>Explore patterns in occupancy, entries and exits.</p></div><div className="intro-actions"><select value={zone} onChange={(e) => setZone(e.target.value)}><option>All zones</option>{zones.map((item) => <option key={item.id}>{item.name}</option>)}</select><button className="button secondary" onClick={() => exportCsv('occupancy-analytics.csv', weeklyData)}><Download size={17}/>Export CSV</button></div></section><div className="filter-tabs period-tabs">{['Today', 'Last 7 Days', 'Last 30 Days', 'Custom'].map((item) => <button key={item} className={period === item ? 'active' : ''} onClick={() => setPeriod(item)}>{item}</button>)}</div><section className="insight-grid"><article><span>Peak occupancy</span><strong>149</strong><small><TrendingUp size={14}/> Thursday, 2:00 PM</small></article><article><span>Busiest hour</span><strong>2–3 PM</strong><small>41 entries recorded</small></article><article><span>Most occupied zone</span><strong>Computer Lab</strong><small>84% utilization</small></article><article><span>Total entries</span><strong>1,125</strong><small>Across selected period</small></article><article><span>Total exits</span><strong>1,094</strong><small>Across selected period</small></article></section><section className="analytics-grid"><article className="panel span-2"><div className="panel-heading"><div><h3>Occupancy over time</h3><p>{period} · {zone}</p></div></div><div className="chart-medium"><ResponsiveContainer><LineChart data={weeklyData}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip/><Line type="monotone" dataKey="occupancy" stroke="#dc2626" strokeWidth={2.5}/></LineChart></ResponsiveContainer></div></article><article className="panel"><div className="panel-heading"><div><h3>Entry vs. exit</h3><p>Daily movement volume</p></div></div><div className="chart-medium"><ResponsiveContainer><BarChart data={weeklyData}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip/><Legend/><Bar dataKey="entries" fill="#dc2626" radius={[4,4,0,0]}/><Bar dataKey="exits" fill="#94a3b8" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div></article><article className="panel"><div className="panel-heading"><div><h3>Zone-wise occupancy</h3><p>Current utilization</p></div></div><div className="chart-medium"><ResponsiveContainer><BarChart data={zoneData} layout="vertical"><CartesianGrid strokeDasharray="3 3" horizontal={false}/><XAxis type="number" axisLine={false} tickLine={false}/><YAxis dataKey="name" type="category" width={90} axisLine={false} tickLine={false}/><Tooltip/><Bar dataKey="occupancy" fill="#dc2626" radius={[0,5,5,0]}/></BarChart></ResponsiveContainer></div></article><article className="panel"><div className="panel-heading"><div><h3>Peak occupancy hours</h3><p>Today's hourly pattern</p></div></div><div className="chart-medium"><ResponsiveContainer><BarChart data={occupancyTrend}><XAxis dataKey="time" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip/><Bar dataKey="occupancy" fill="#ef4444" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div></article></section></div>
+import { Download } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import type { AnalyticsPoint, OccupancyState, Zone } from "../types";
+import { exportCsv } from "../utils/csvExport";
+export function Analytics({
+  zones,
+  daily,
+  hourly,
+  peaks,
+  occupancy,
+}: {
+  zones: Zone[];
+  daily: AnalyticsPoint[];
+  hourly: AnalyticsPoint[];
+  peaks: AnalyticsPoint[];
+  occupancy: OccupancyState[];
+}) {
+  const totalEntries = occupancy.reduce((s, r) => s + r.entries, 0),
+    totalExits = occupancy.reduce((s, r) => s + r.exits, 0),
+    busiest = peaks[0];
+  return (
+    <div className="page-stack">
+      <section className="page-intro">
+        <div>
+          <div className="eyebrow">BACKEND ANALYTICS</div>
+          <h2>Occupancy Analytics</h2>
+          <p>Historical results calculated from persisted events.</p>
+        </div>
+        <button
+          className="button secondary"
+          onClick={() => exportCsv("occupancy-analytics.csv", daily.map((row) => ({ period: row.period, entries: row.entries, exits: row.exits })))}
+        >
+          <Download size={17} />
+          Export CSV
+        </button>
+      </section>
+      <section className="insight-grid">
+        <article>
+          <span>Recorded days</span>
+          <strong>{daily.length}</strong>
+          <small>Available history</small>
+        </article>
+        <article>
+          <span>Busiest hour</span>
+          <strong>{busiest?.period.slice(11, 16) || "—"}</strong>
+          <small>
+            {busiest ? busiest.entries + busiest.exits : 0} movements
+          </small>
+        </article>
+        <article>
+          <span>Most occupied zone</span>
+          <strong>
+            {[...zones].sort((a, b) => b.occupancy - a.occupancy)[0]?.name ||
+              "—"}
+          </strong>
+          <small>Current state</small>
+        </article>
+        <article>
+          <span>Total entries</span>
+          <strong>{totalEntries}</strong>
+          <small>Zone counters</small>
+        </article>
+        <article>
+          <span>Total exits</span>
+          <strong>{totalExits}</strong>
+          <small>Zone counters</small>
+        </article>
+      </section>
+      <section className="analytics-grid">
+        <Chart title="Daily entries and exits" empty={!daily.length}>
+          <ResponsiveContainer>
+            <BarChart data={daily}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="period" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="entries" fill="#dc2626" />
+              <Bar dataKey="exits" fill="#94a3b8" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Chart>
+        <Chart title="Hourly activity" empty={!hourly.length}>
+          <ResponsiveContainer>
+            <LineChart data={hourly}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="period" />
+              <YAxis />
+              <Tooltip />
+              <Line dataKey="entries" stroke="#dc2626" />
+              <Line dataKey="exits" stroke="#64748b" />
+            </LineChart>
+          </ResponsiveContainer>
+        </Chart>
+      </section>
+    </div>
+  );
+}
+function Chart({
+  title,
+  empty,
+  children,
+}: {
+  title: string;
+  empty: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <article className="panel">
+      <div className="panel-heading">
+        <h3>{title}</h3>
+      </div>
+      {empty ? (
+        <div className="empty-state">
+          <h3>No historical data</h3>
+          <p>Analytics appear after events are recorded.</p>
+        </div>
+      ) : (
+        <div className="chart-medium">{children}</div>
+      )}
+    </article>
+  );
 }

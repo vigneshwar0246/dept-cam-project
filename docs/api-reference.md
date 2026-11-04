@@ -2,7 +2,10 @@
 
 Health: `GET /api/health`, `/api/system/status`, `/api/system/performance`.
 
+Administrator verification: `GET /api/admin/verify` requires `X-API-Key` and performs no mutation.
+
 Cameras: `GET/POST /api/cameras`, `GET/PUT/DELETE /api/cameras/{id}`, `POST /api/cameras/{id}/start|stop`, `GET /api/cameras/{id}/snapshot|config`, `PUT /api/cameras/{id}/config`.
+Cameras also expose `GET /api/cameras/{id}/stream` for processed MJPEG and administrator-only `GET /api/cameras/discover/local` for local device indices.
 
 Occupancy: `GET /api/occupancy`, `GET /api/occupancy/{zone}`, `POST /api/occupancy/{zone}/correction`, `GET /api/occupancy/history`.
 
