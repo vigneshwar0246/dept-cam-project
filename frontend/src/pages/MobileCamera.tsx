@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, RefreshCw, Square } from "lucide-react";
+import { Camera, Check, RefreshCw, ShieldCheck, Square, Wifi } from "lucide-react";
 import { api, messageFromError } from "../services/api";
 import type { PairingSession } from "../services/cameraService";
 
@@ -64,9 +64,14 @@ export function MobileCamera() {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       await waitForIce(pc);
-      if (!clientId.current) clientId.current = crypto.randomUUID();
+      if (!clientId.current) {
+        const key = `phone-camera-client-${sessionId}`;
+        clientId.current = sessionStorage.getItem(key) ?? crypto.randomUUID();
+        sessionStorage.setItem(key, clientId.current);
+      }
       const response = await api.post<{ sdp: string; type: RTCSdpType }>(`/phone-pairings/${sessionId}/offer`, { sdp: pc.localDescription?.sdp, type: "offer", client_id: clientId.current }, { headers: { Authorization: `Bearer ${token}` } });
       await pc.setRemoteDescription(response.data);
+      setError("");
     } catch (cause) {
       setError(messageFromError(cause));
       if (!manuallyStopped.current) {
@@ -84,7 +89,7 @@ export function MobileCamera() {
     if (!token) return;
     let stopped = false;
     const refresh = () => void api.get<PairingSession>(`/phone-pairings/${sessionId}`, { headers: { Authorization: `Bearer ${token}` } }).then((response) => {
-      if (stopped) return;
+      if (stopped || manuallyStopped.current) return;
       setSession(response.data);
       if (response.data.status === "camera_connected") setStatus("Camera connected — backend is receiving video");
       else if (response.data.status === "reconnecting") setStatus("Connection interrupted — reconnecting");
@@ -129,7 +134,8 @@ export function MobileCamera() {
       let media: MediaStream;
       try {
         media = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: nextFacing }, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 15, max: 30 } } });
-      } catch {
+      } catch (cause) {
+        if (!(cause instanceof DOMException) || cause.name !== "OverconstrainedError") throw cause;
         media = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
       }
       stream.current = media;
@@ -149,5 +155,6 @@ export function MobileCamera() {
   };
 
   const visibleError = !token ? "This pairing link is missing its one-time token." : error;
-  return <main className="mobile-camera-page"><section className="mobile-camera-card"><div className="mobile-camera-brand"><Camera /><span>Department Occupancy</span></div><h1>Phone Camera</h1><p>Your video is encrypted in transit and processed for anonymous people counting. An active session has no automatic duration limit.</p><div className="mobile-local-preview"><video ref={video} autoPlay muted playsInline /><span>{status}</span></div>{visibleError && <p className="field-error">{visibleError}</p>}<div className="pairing-metrics"><span><strong>{duration(session?.streaming_duration_seconds)}</strong>Duration</span><span><strong>{(session?.capture_fps ?? 0).toFixed(1)}</strong>Capture FPS</span><span><strong>{(session?.processing_fps ?? 0).toFixed(1)}</strong>Processing FPS</span><span><strong>{(session?.latency_ms ?? 0).toFixed(1)} ms</strong>Latency</span></div><div className="mobile-camera-actions"><button className="button primary" disabled={!token || !session || streaming} onClick={() => void start()}><Camera size={18} />Start streaming</button><button className="button secondary" disabled={!streaming} onClick={() => void switchCamera()}><RefreshCw size={18} />Switch camera</button><button className="button secondary" disabled={!streaming} onClick={() => void stop()}><Square size={18} />Stop Camera</button></div><p className="secure-context-note">Camera access requires this page to use a trusted HTTPS certificate. Keep Safari in the foreground for reliable iPhone capture.</p></section></main>;
+  const backendReceiving = session?.status === "camera_connected";
+  return <main className="mobile-camera-page"><section className="mobile-camera-card"><header className="mobile-camera-header"><div className="mobile-camera-brand"><span><Camera size={19} /></span><div><strong>Department Occupancy</strong><small>Secure phone camera</small></div></div><div className={`mobile-connection-badge ${backendReceiving ? "connected" : ""}`}><span />{backendReceiving ? "Live" : streaming ? "Connecting" : "Ready"}</div></header><div className="mobile-camera-intro"><p className="mobile-kicker">Private WebRTC connection</p><h1>Use this phone as a camera</h1><p>Keep this page open while streaming. Video is processed for anonymous occupancy counting and is not recorded by default.</p></div><div className={`mobile-local-preview ${streaming ? "is-streaming" : ""}`}><video ref={video} autoPlay muted playsInline />{!streaming && <div className="mobile-preview-empty"><Camera size={34} /><strong>Camera preview</strong><span>Tap Start camera below</span></div>}<div className="mobile-preview-status"><span className={backendReceiving ? "live" : ""} />{status}</div></div>{visibleError && <div className="mobile-error" role="alert"><strong>Connection problem</strong><span>{visibleError}</span></div>}<div className="mobile-steps"><div className={session ? "done" : "active"}><span>{session ? <Check size={15} /> : "1"}</span><p><strong>Pairing link</strong><small>{session ? "Verified" : "Checking"}</small></p></div><div className={streaming ? "done" : session ? "active" : ""}><span>{streaming ? <Check size={15} /> : "2"}</span><p><strong>Camera access</strong><small>{streaming ? "Granted" : "Permission required"}</small></p></div><div className={backendReceiving ? "done" : streaming ? "active" : ""}><span>{backendReceiving ? <Check size={15} /> : "3"}</span><p><strong>Backend video</strong><small>{backendReceiving ? "Receiving frames" : "Waiting"}</small></p></div></div><div className="pairing-metrics mobile-metrics"><span><strong>{duration(session?.streaming_duration_seconds)}</strong>Duration</span><span><strong>{(session?.capture_fps ?? 0).toFixed(1)}</strong>Capture FPS</span><span><strong>{(session?.processing_fps ?? 0).toFixed(1)}</strong>AI FPS</span><span><strong>{(session?.latency_ms ?? 0).toFixed(0)} ms</strong>Latency</span></div><div className="mobile-camera-actions">{!streaming ? <button className="mobile-primary-action" disabled={!token || !session} onClick={() => void start()}><Camera size={20} />Start camera</button> : <><button className="mobile-secondary-action" onClick={() => void switchCamera()}><RefreshCw size={18} />Switch</button><button className="mobile-stop-action" onClick={() => void stop()}><Square size={18} />Stop Camera</button></>}</div><footer className="mobile-security-note"><ShieldCheck size={16} /><span>Encrypted connection</span><Wifi size={16} /><span>Keep Wi-Fi connected</span></footer></section></main>;
 }

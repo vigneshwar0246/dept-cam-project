@@ -100,6 +100,8 @@ Do not create router port-forwarding rules or expose these ports to the public i
 8. Walk across the calibrated line in both directions. Verify the occupancy WebSocket updates and query the `occupancy_events` collection in MongoDB.
 9. Use **Stop** on the phone or **Disconnect phone** on the laptop to close tracks, the peer connection, processor, and camera state.
 
+Closing the laptop pairing dialog with X, the backdrop, or **Close window** does not stop an active camera. The stream continues in Live Monitoring until an explicit **Stop Camera** control is used.
+
 The 120-second timer applies only before the first phone claims the QR token. A claimed, active camera session has no automatic duration limit and may stream for hours. The dashboard and phone page show the live connection state, elapsed streaming duration, capture FPS, processing FPS, and measured backend latency.
 
 If Wi-Fi drops temporarily, the phone reuses its existing permitted camera track and client identity while renegotiating with exponential backoff. The backend atomically replaces the old peer connection and retains the same processor, ByteTrack tracker, line counter, and frame buffer, preventing duplicate processing or occupancy events. `WEBRTC_RECONNECT_GRACE_SECONDS` controls how long an entirely interrupted connection may reconnect before the backend classifies it as permanently closed and frees resources. It is not an active-camera time limit.

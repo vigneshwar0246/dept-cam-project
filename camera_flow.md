@@ -270,6 +270,8 @@ Before pairing, verify the phone can open `https://192.168.1.6:5173` without a c
 4. A real QR code and a `120s to pair` countdown appear.
 5. Scan it before expiry. The token is one-use and is stored hashed by the backend.
 
+The popup X, backdrop, and **Close window** button now close only the dialog. They do not stop a claimed phone camera. Use the explicit **Stop Camera** button in the dialog, phone page, or the square Stop control in Camera Management when you actually want to end the stream.
+
 Success: the phone opens `/mobile-camera/{pairing-session-id}` on the trusted frontend origin. The token stays in the URL fragment and is not part of the initial server request.
 
 Failure:

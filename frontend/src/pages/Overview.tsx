@@ -78,6 +78,9 @@ export function Overview({
   const capacity = zones.reduce((sum, zone) => sum + zone.capacity, 0);
   const entries = states.reduce((sum, row) => sum + row.entries, 0);
   const exits = states.reduce((sum, row) => sum + row.exits, 0);
+  const onlineCameras = cameras.filter((camera) => camera.status === "Online").length;
+  const connectingCameras = cameras.filter((camera) => camera.status === "Connecting").length;
+  const hasOccupancy = zones.some((zone) => zone.occupancy > 0);
   const chart = trend.map((row) => ({
     time: row.period.slice(11, 16) || row.period,
     occupancy: row.entries - row.exits,
@@ -99,10 +102,7 @@ export function Overview({
                 : "Authoritative data from FastAPI and MongoDB.")}
           </p>
         </div>
-        <button className="button secondary" onClick={() => void onRefresh()}>
-          <RefreshCw size={17} />
-          Refresh
-        </button>
+        <div className="overview-actions"><div className="overview-camera-summary"><strong>{onlineCameras}</strong><span>online</span><i /><strong>{connectingCameras}</strong><span>connecting</span></div><button className="button secondary" onClick={() => void onRefresh()}><RefreshCw size={17} />Refresh</button></div>
       </section>
       <section className="metrics-grid">
         <Metric
@@ -127,8 +127,8 @@ export function Overview({
         />
         <Metric
           label="Active cameras"
-          value={`${cameras.filter((item) => item.status === "Online").length} / ${cameras.length}`}
-          detail="Configured camera sources"
+          value={`${onlineCameras} / ${cameras.length}`}
+          detail={connectingCameras ? `${connectingCameras} connecting` : "Configured camera sources"}
           icon={Camera}
         />
         <Metric
@@ -182,7 +182,7 @@ export function Overview({
               <p>Current backend state</p>
             </div>
           </div>
-          {zones.length ? (
+          {zones.length && hasOccupancy ? (
             <>
               <div className="donut-wrap">
                 <ResponsiveContainer width="100%" height={210}>
@@ -212,7 +212,8 @@ export function Overview({
             </>
           ) : (
             <div className="empty-state">
-              <h3>No zones found</h3>
+              <h3>{zones.length ? "No current occupancy" : "No zones found"}</h3>
+              <p>{zones.length ? "Counts will appear after a confirmed entry." : "Add a camera with a zone to begin."}</p>
             </div>
           )}
         </article>
@@ -253,7 +254,7 @@ export function Overview({
             </div>
           </div>
           <div className="health-list">
-            {cameras.slice(0, 4).map((camera) => (
+            {cameras.slice(0, 6).map((camera) => (
               <div key={camera.id}>
                 <div className="camera-glyph">
                   <Camera size={17} />
@@ -267,6 +268,7 @@ export function Overview({
                 <StatusBadge value={camera.status} />
               </div>
             ))}
+            {!cameras.length && <div className="health-empty"><Camera size={20} /><span>No cameras configured</span></div>}
           </div>
         </article>
       </section>

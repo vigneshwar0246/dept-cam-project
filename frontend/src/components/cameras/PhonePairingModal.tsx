@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Smartphone, X } from "lucide-react";
+import { Smartphone, Square, X } from "lucide-react";
 import QRCode from "qrcode";
 import type { Zone } from "../../types";
 import { cameraService, type PairingSession } from "../../services/cameraService";
@@ -59,12 +59,12 @@ export function PhonePairingModal({ zones, onClose, onConnected }: { zones: Zone
       setSession(await cameraService.createPairing({ camera_id: cameraId.trim(), camera_name: name.trim(), zone_id: zone.trim() }));
     } catch (e) { setError(messageFromError(e)); }
   };
-  const cancel = async () => {
+  const stop = async () => {
     if (session) await cameraService.cancelPairing(session.id).catch(() => undefined);
     onClose();
   };
   return (
-    <Modal title="Connect Phone Camera" onClose={() => void cancel()}>
+    <Modal title="Connect Phone Camera" subtitle="Closing this window does not stop an active camera." onClose={onClose}>
       <div className="phone-pairing">
         {!session ? <>
           <p>Register the phone camera, then scan its one-time QR code.</p>
@@ -78,9 +78,10 @@ export function PhonePairingModal({ zones, onClose, onConnected }: { zones: Zone
           <div className="pairing-status"><span className={`pairing-dot ${session.status}`} />{labels[session.status] ?? session.status}<strong>{session.claimed_at ? "No session time limit" : `${remaining}s to pair`}</strong></div>
           {qr && remaining > 0 && !session.claimed_at && <img className="pairing-qr" src={qr} alt="One-time phone camera pairing QR code" />}
           <ol className="pairing-instructions"><li>Connect the phone and laptop to the same trusted Wi-Fi.</li><li>Scan this QR code using the phone camera.</li><li>Tap Start streaming and allow camera access.</li></ol>
+          {session.claimed_at && <p className="pairing-safe-close">You can close this window and continue watching the camera in Live Monitoring.</p>}
           {session.status === "camera_connected" && <div className="pairing-preview"><img src={cameraService.streamUrl(session.camera_id)} alt="Processed phone camera feed" /></div>}
           {session.claimed_at && <div className="pairing-metrics"><span><strong>{Math.floor((session.streaming_duration_seconds ?? 0) / 3600).toString().padStart(2, "0")}:{Math.floor((session.streaming_duration_seconds ?? 0) % 3600 / 60).toString().padStart(2, "0")}:{Math.floor((session.streaming_duration_seconds ?? 0) % 60).toString().padStart(2, "0")}</strong>Duration</span><span><strong>{(session.capture_fps ?? 0).toFixed(1)}</strong>Capture FPS</span><span><strong>{(session.processing_fps ?? 0).toFixed(1)}</strong>Processing FPS</span><span><strong>{(session.latency_ms ?? 0).toFixed(1)} ms</strong>Latency</span></div>}
-          <div className="modal-actions"><button className="button secondary" onClick={() => void cancel()}><X size={16} />{session.claimed_at ? "Stop Camera" : "Cancel pairing"}</button>{["expired", "permanently_closed", "disconnected"].includes(session.status) && <button className="button primary" onClick={() => { connectedNotified.current = false; setSession(undefined); setQr(""); }}>Create new pairing</button>}</div>
+          <div className="modal-actions"><button className="button secondary" onClick={onClose}><X size={16} />Close window</button>{!["expired", "cancelled", "permanently_closed", "disconnected"].includes(session.status) && <button className="button danger" onClick={() => void stop()}><Square size={16} />{session.claimed_at ? "Stop Camera" : "Cancel pairing"}</button>}{["expired", "permanently_closed", "disconnected"].includes(session.status) && <button className="button primary" onClick={() => { connectedNotified.current = false; setSession(undefined); setQr(""); }}>Create new pairing</button>}</div>
         </>}
         {error && <p className="field-error">{error}</p>}
       </div>

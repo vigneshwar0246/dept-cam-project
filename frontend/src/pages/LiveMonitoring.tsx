@@ -34,7 +34,9 @@ function Preview({ camera }: { camera: Camera }) {
               ? failed
                 ? "No frame available"
                 : "Loading latest frame…"
-              : "Camera is not running"}
+              : camera.status === "Connecting"
+                ? "Waiting for the first processed frame"
+                : "Camera is stopped"}
           </strong>
         </>
       )}

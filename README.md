@@ -412,3 +412,7 @@ Check that `DATABASE_URL` is populated and `/api/health` reports `connected`. An
 - Snapshot recovery cannot account for crossings that happen while the system is offline.
 - Duplicate-view suppression uses a short time window and is not cross-camera person re-identification.
 
+-------------------------------------------------------
+Risk: if your LAN IP changes, update .env, frontend/.env, and regenerate the HTTPS certificate for the new IP. MongoDB Compass alone does not start MongoDB—the configured database server must also be running.
+--------------------------------------------------------
+
